@@ -1,0 +1,11 @@
+{
+  "appId": "com.family.groceries",
+  "appName": "مقاضي العائلة",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "always"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
