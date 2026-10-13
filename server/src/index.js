@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { config } from "./config.js";
 import { getDb } from "./db.js";
 import { HttpError } from "./auth.js";
@@ -99,8 +100,8 @@ export function createApp() {
   return app;
 }
 
-/* Entry point when run directly. */
-const isMain = process.argv[1] && import.meta.url === `file:///${process.argv[1].replace(/\\/g, "/")}`;
+/* Entry point when run directly (works with relative paths and non-ASCII paths). */
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (isMain) {
   const app = createApp();
   app.listen(config.port, config.host, () => {
