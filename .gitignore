@@ -1,5 +1,6 @@
 node_modules/
 .DS_Store
+*.apk
 
 # Capacitor copies web assets into the native project; regenerate with `npx cap sync`
 ios/App/App/public/
