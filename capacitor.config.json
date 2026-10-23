@@ -6,6 +6,13 @@
     "contentInset": "always"
   },
   "server": {
-    "androidScheme": "https"
+    "url": "https://gaeth200300-boop.github.io/family-groceries/",
+    "androidScheme": "https",
+    "cleartext": false,
+    "allowNavigation": [
+      "gaeth200300-boop.github.io",
+      "list-written-greater-logical.trycloudflare.com",
+      "*.trycloudflare.com"
+    ]
   }
 }
