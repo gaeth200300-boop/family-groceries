@@ -4,7 +4,7 @@
    - never caches /api responses (the list must always be live)
    - receives Web Push messages and shows them in the phone's notification tray
    ============================================================================= */
-const CACHE = "mqadi-family-v3";
+const CACHE = "mqadi-family-v4";
 const APP_SHELL = [
   "./",
   "./index.html",

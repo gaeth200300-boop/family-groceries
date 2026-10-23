@@ -39,11 +39,11 @@ test.after(() => server?.close());
 const HTML = fs.readFileSync(path.resolve(process.cwd(), "..", "www", "index.html"), "utf8");
 const API_JS = fs.readFileSync(path.resolve(process.cwd(), "..", "www", "api.js"), "utf8");
 
-function openApp({ seedCookies = null } = {}) {
+function openApp({ seedCookies = null, url = "https://app.test/" } = {}) {
   const vc = new VirtualConsole();
   const dom = new JSDOM(HTML, {
     runScripts: "dangerously", pretendToBeVisual: true,
-    url: "https://app.test/", virtualConsole: vc,
+    url, virtualConsole: vc,
     beforeParse(w) {
       w.FG_API_BASE = base;
       w.lucide = { createIcons() {} };
@@ -401,6 +401,74 @@ test("a member keeps working across repeated app restarts, and revocation still 
   await tick(w, 600);
   assert.equal(d.querySelector("#app").hidden, true, "revoked member must stay locked out");
   w.close();
+});
+
+test("an invite link opens Create Account with the code filled, and the name survives a restart", async () => {
+  await ensureOwner();
+  const t = await ownerToken();
+  const inv = (await api("POST", "/api/auth/household/invites", {
+    body: { email: "linked-child@family.test" }, token: t,
+  })).body;
+
+  const { w, d } = openApp({ url: "https://app.test/?code=" + encodeURIComponent(inv.code) });
+  await tick(w, 600);
+  assert.equal(d.querySelector("#paneJoin").hidden, false, "the invite link must open the create-account pane");
+  assert.equal(d.querySelector("#jnCode").value, inv.code, "the invite code must be prefilled");
+  assert.ok(d.querySelector("#paneJoin").textContent.includes("إنشاء الحساب"), "the pane is labelled Create Account");
+
+  d.querySelector("#jnName").value = "فهد";
+  d.querySelector("#jnEmail").value = "linked-child@family.test";
+  d.querySelector("#jnPass").value = "linkedpass12";
+  submit(w, d.querySelector("#joinForm"));
+  await tick(w, 1000);
+
+  assert.equal(d.querySelector("#app").hidden, false,
+    "signup failed: " + (d.querySelector("#joinError")?.textContent || ""));
+  assert.equal(w.FG_API.getUser().name, "فهد", "the chosen name is the signed-in name");
+  assert.ok(d.querySelector("#view-dashboard").textContent.includes("فهد"),
+    "the dashboard must greet the member by name");
+
+  const jar = [...w.__jar.entries()];
+  w.close();
+
+  const restarted = openApp({ seedCookies: jar });
+  await tick(restarted.w, 1000);
+  assert.equal(restarted.d.querySelector("#app").hidden, false, "the session must survive an app restart");
+  assert.equal(restarted.d.querySelector("#auth").hidden, true, "the sign-in screen must not reappear");
+  assert.ok(restarted.d.querySelector("#view-dashboard").textContent.includes("فهد"),
+    "the member's name must still be shown after restart");
+  restarted.w.close();
+});
+
+test("an invite can be created without an email and works for exactly one account", async () => {
+  await ensureOwner();
+  const { w, d } = await signInOwner();
+  click(w, d.querySelector('[data-action="nav"][data-view="family"]'));
+  await tick(w, 150);
+  click(w, d.querySelector('[data-action="open-add-member"]'));
+  await tick(w, 150);
+
+  assert.equal(d.querySelector("#mfEmail").required, false, "the email must be optional");
+  submit(w, d.querySelector("#memberForm"));
+  await tick(w, 700);
+
+  const codeEl = d.querySelector("#inviteCodeText");
+  assert.ok(codeEl, "a general invite code is shown");
+  const code = codeEl.textContent.trim();
+  assert.match(code, /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+  assert.ok(d.querySelector("#modalRoot").textContent.includes("كود عام"), "the dialog labels it as a general code");
+  w.close();
+
+  const first = await api("POST", "/api/auth/register", {
+    body: { email: "general-one@family.test", name: "General One", password: "generalpass1", inviteCode: code },
+  });
+  assert.equal(first.status, 201, first.raw);
+
+  const second = await api("POST", "/api/auth/register", {
+    body: { email: "general-two@family.test", name: "General Two", password: "generalpass2", inviteCode: code },
+  });
+  assert.equal(second.status, 403, second.raw);
+  assert.equal(second.body.error, "invite_used");
 });
 
 test("no runtime errors across the whole invite flow", async () => {

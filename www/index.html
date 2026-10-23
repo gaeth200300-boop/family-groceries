@@ -534,7 +534,7 @@ mark{background:var(--primary-soft);color:var(--primary);border-radius:4px;paddi
 
     <div class="auth-tabs" id="authTabs">
       <button type="button" class="auth-tab sel" data-auth-tab="signin">تسجيل الدخول</button>
-      <button type="button" class="auth-tab" data-auth-tab="join">انضمام بكود</button>
+      <button type="button" class="auth-tab" data-auth-tab="join">إنشاء حساب</button>
     </div>
 
     <div class="auth-pane" id="paneSignin">
@@ -546,10 +546,11 @@ mark{background:var(--primary-soft);color:var(--primary);border-radius:4px;paddi
         <button class="btn primary lg full" type="submit" id="signinBtn">دخول</button>
       </form>
       <p class="auth-error" id="authError" hidden></p>
-      <p class="auth-hint"><i data-lucide="info"></i><span>التطبيق خاص بالعائلة فقط. لا يمكن إنشاء حساب دون دعوة من مدير العائلة.</span></p>
+      <p class="auth-hint"><i data-lucide="info"></i><span>التطبيق خاص بالعائلة فقط. عندك كود دعوة؟ افتح تبويب «إنشاء حساب» وأنشئ حسابك باسمك.</span></p>
     </div>
 
     <div class="auth-pane" id="paneJoin" hidden>
+      <p class="auth-sub">أنشئ حسابك باسمك، وأدخل كود العائلة الذي وصلك من المدير.</p>
       <form id="joinForm" autocomplete="on">
         <label class="f-label" for="jnName">اسمك</label>
         <input class="field" id="jnName" type="text" autocomplete="name" placeholder="مثال: فهد" required>
@@ -558,10 +559,11 @@ mark{background:var(--primary-soft);color:var(--primary);border-radius:4px;paddi
         <label class="f-label" for="jnPass">كلمة مرور جديدة</label>
         <input class="field" id="jnPass" type="password" autocomplete="new-password" placeholder="10 أحرف على الأقل مع رقم" required>
         <label class="f-label" for="jnCode">كود الدعوة</label>
-        <input class="field" id="jnCode" type="text" placeholder="XXXX-XXXX-XXXX" autocapitalize="characters" spellcheck="false" required>
-        <button class="btn primary lg full" type="submit" id="joinBtn">انضمام للعائلة</button>
+        <input class="field" id="jnCode" type="text" placeholder="XXXX-XXXX-XXXX" autocapitalize="characters" autocomplete="off" spellcheck="false" required>
+        <button class="btn primary lg full" type="submit" id="joinBtn">إنشاء الحساب</button>
       </form>
       <p class="auth-error" id="joinError" hidden></p>
+      <p class="auth-hint"><i data-lucide="info"></i><span>بعد إنشاء الحساب يبقى تسجيل الدخول محفوظًا على هذا الجهاز، ويظهر اسمك في التطبيق. الكود صالح لشخص واحد.</span></p>
     </div>
 
     <div class="auth-pane" id="paneSetup" hidden>
@@ -1641,9 +1643,9 @@ function handleFinish(){
 function openAddMember(){
   F2 = {img:null, role:'member', expires: ''};
   openModal('<form id="memberForm" class="modal-card small">' +
-  '<div class="m-head"><span class="cat-chip" style="--h:#3E6484"><i data-lucide="user-plus"></i></span><div class="mh-t"><h3>دعوة عضو للعائلة</h3></div></div>' +
-  '<div class="m-body"><label class="f-label">البريد الإلكتروني</label>' +
-  '<input class="field" id="mfEmail" type="email" inputmode="email" placeholder="family@example.com" autocomplete="off" required>' +
+  '<div class="m-head"><span class="cat-chip" style="--h:#3E6484"><i data-lucide="user-plus"></i></span><div class="mh-t"><h3>إنشاء كود دعوة</h3><small>لشخص واحد من العائلة</small></div></div>' +
+  '<div class="m-body"><label class="f-label">البريد الإلكتروني (اختياري)</label>' +
+  '<input class="field" id="mfEmail" type="email" inputmode="email" placeholder="اتركه فارغًا لكود عام" autocomplete="off">' +
   '<label class="f-label">الصلاحية</label><div class="chips" id="mfRole">' +
   '<button type="button" class="chip sel" data-action="set-role" data-v="member">عضو</button>' +
   '<button type="button" class="chip" data-action="set-role" data-v="admin">مدير</button></div>' +
@@ -1651,18 +1653,20 @@ function openAddMember(){
   '<button type="button" class="chip sel" data-action="set-expiry" data-v="">دائم (موصى به)</button>' +
   '<button type="button" class="chip" data-action="set-expiry" data-v="7">7 أيام</button>' +
   '<button type="button" class="chip" data-action="set-expiry" data-v="30">30 يوم</button></div>' +
-  '<p class="foot-note"><i data-lucide="info"></i><span>الكود الدائم لا ينتهي، ويبقى صالحًا حتى يُستخدم مرة واحدة أو حتى تلغيه يدويًا. أما العضو بعد انضمامه فيبقى مسجّل الدخول ولا يحتاج لإعادة إدخال كلمة المرور.</span></p></div>' +
+  '<p class="foot-note"><i data-lucide="info"></i><span>اترك البريد فارغًا إذا ما عندك بريد العضو. بعد الإنشاء تقدر تنسخ رابط الدعوة أو ترسله واتساب؛ الرابط يفتح شاشة «إنشاء حساب» والكود معبأ. الكود صالح لشخص واحد فقط، وبعد انضمامه يبقى مسجّل الدخول على جهازه.</span></p></div>' +
   '<div class="m-foot"><button type="button" class="btn ghost" data-action="close-modal">إلغاء</button>' +
-  '<button class="btn primary" type="submit">إضافة</button></div></form>');
+  '<button class="btn primary" type="submit">إنشاء الكود</button></div></form>');
 }
 async function handleMember(){
   const email = $('#mfEmail').value.trim();
-  if (!email){ toast('اكتب البريد الإلكتروني للعضو', 'warn'); return; }
   if (!isServerMode()){ toast('الدعوات تتطلب وضعًا متصلًا بالخادم', 'warn'); return; }
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+    toast('البريد الإلكتروني غير صحيح', 'warn'); return;
+  }
   try{
     const days = F2.expires ? Number(F2.expires) : undefined;
-    const inv = await API.inviteMember({email, role: F2.role || 'member', expiresInDays: days});
-    notify('member', currentUser.name + ' دعا ' + email + ' إلى العائلة');
+    const inv = await API.inviteMember({email: email || undefined, role: F2.role || 'member', expiresInDays: days});
+    notify('member', currentUser.name + ' أنشأ كود دعوة' + (email ? ' لـ' + email : ''));
     closeModal(); refresh();
     showInviteCode(inv.code, email);
   }catch(err){
@@ -1671,21 +1675,29 @@ async function handleMember(){
 }
 
 function showInviteCode(code, email){
+  const link = inviteShareLink(code);
+  const who = email
+    ? 'أرسل الدعوة إلى: <b>' + esc(email) + '</b>'
+    : 'كود عام لأي فرد من العائلة — شاركه مع شخص واحد فقط.';
   openModal('<div class="modal-card small">' +
   '<div class="m-head"><span class="cat-chip" style="--h:#0E7C66"><i data-lucide="user-plus"></i></span>' +
-  '<div class="mh-t"><h3>كود الدعوة</h3><small>' + esc(email || '') + '</small></div>' +
+  '<div class="mh-t"><h3>كود الدعوة</h3><small>' + (email ? esc(email) : 'كود عام') + '</small></div>' +
   '<button class="iconbtn" data-action="close-modal"><i data-lucide="x"></i></button></div>' +
   '<div class="m-body">' +
-  '<p class="auth-sub" style="margin-bottom:14px">أرسل هذا الكود للفرد، وسينضم بكلمة مرور من اختياره.</p>' +
+  '<p class="auth-sub" style="margin-bottom:14px">أرسل الرابط للفرد؛ سيفتح التطبيق على شاشة «إنشاء حساب» والكود معبأ.</p>' +
   '<div class="invite-row" style="justify-content:center">' +
   '<span class="invite-code" id="inviteCodeText">' + esc(code) + '</span></div>' +
-  '<p class="auth-hint" style="margin-top:14px"><i data-lucide="info"></i><span>' +
-  'أرسل الدعوة إلى: <b>' + esc(email || '') + '</b></span></p>' +
-  '<p class="auth-hint"><i data-lucide="info"></i><span>الكود يُعرض مرة واحدة فقط، ودائم افتراضيًا. صالح لشخص واحد فقط؛ وبعد انضمامه يبقى العضو مسجّل الدخول دون إعادة إدخال كلمة المرور.</span></p>' +
+  '<p class="auth-hint" style="margin-top:14px"><i data-lucide="info"></i><span>' + who + '</span></p>' +
+  '<p class="auth-hint"><i data-lucide="info"></i><span style="word-break:break-all;direction:ltr;text-align:left">' + esc(link) + '</span></p>' +
+  '<p class="auth-hint"><i data-lucide="info"></i><span>على الآيفون: الأفضل يفتح التطبيق من الأيقونة ويختار «إنشاء حساب» ثم يدخل الكود. الرابط يفتح سفاري.</span></p>' +
+  '<p class="auth-hint"><i data-lucide="info"></i><span>الكود يُعرض مرة واحدة فقط، وصالح لشخص واحد. بعد انضمامه يبقى مسجّل الدخول على جهازه دون إعادة إدخال كلمة المرور.</span></p>' +
   '</div><div class="m-foot">' +
-  '<button class="btn ghost" data-action="close-modal">إغلاق</button>' +
-  '<button class="btn primary" data-action="copy-invite" data-code="' + esc(code) + '">' +
-  '<i data-lucide="copy"></i>نسخ الكود</button></div></div>');
+  '<button class="btn ghost" data-action="copy-invite" data-code="' + esc(code) + '">' +
+  '<i data-lucide="copy"></i>نسخ الكود</button>' +
+  '<button class="btn ghost" data-action="share-invite-whatsapp" data-code="' + esc(code) + '">' +
+  '<i data-lucide="send"></i>واتساب</button>' +
+  '<button class="btn primary" data-action="copy-invite-link" data-code="' + esc(code) + '">' +
+  '<i data-lucide="link"></i>نسخ رابط الدعوة</button></div></div>');
 }
 
 function addSuggestionByName(name){
@@ -1798,7 +1810,7 @@ async function renderInviteList(){
     box.innerHTML = rows.map(i => {
       const label = INVITE_STATE[i.state] || i.state;
       const when = new Date(i.createdAt);
-      const meta = i.email ? esc(i.email) : 'كأن عنوان';
+      const meta = i.email ? esc(i.email) : 'كود عام';
       const exp = i.expiresAt
         ? ' · ' + 'ينتهي بعد' + ' ' + when.getDate() + ' ' + AR_MONTH[when.getMonth()]
         : '';
@@ -2067,6 +2079,38 @@ function showAuthPane(which){
   icons();
 }
 
+/* كود الدعوة قد يصل داخل رابط: /?code=XXXX-XXXX-XXXX */
+function inviteCodeFromUrl(){
+  try{
+    const u = new URL(location.href);
+    return (u.searchParams.get('code') || u.searchParams.get('invite') || '').trim().toUpperCase();
+  }catch(e){ return ''; }
+}
+
+function applyInviteFromUrl(){
+  const code = inviteCodeFromUrl();
+  if (!code) return false;
+  const input = $('#jnCode');
+  if (input) input.value = code;
+  showAuthPane('join');
+  setTimeout(() => { const n = $('#jnName'); if (n) n.focus(); }, 80);
+  return true;
+}
+
+function inviteShareLink(code){
+  return location.origin + location.pathname + '?code=' + encodeURIComponent(code || '');
+}
+
+function copyText(text, okMsg){
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text)
+      .then(() => toast(okMsg || 'تم النسخ'))
+      .catch(() => toast(text, 'info'));
+  } else {
+    toast(text, 'info');
+  }
+}
+
 /* الوضع المحلي: اختيار ملف شخصي محلي بلا خادم ولا كلمة مرور */
 function renderLocalPicker(){
   const box = $('#localPicker');
@@ -2158,23 +2202,24 @@ async function doJoin(e){
   e.preventDefault();
   const name = $('#jnName').value.trim(), email = $('#jnEmail').value.trim();
   const pass = $('#jnPass').value, code = $('#jnCode').value.trim().toUpperCase();
-  const btn = $('#joinBtn'); btn.disabled = true; btn.textContent = 'جارٍ الانضمام…';
+  const btn = $('#joinBtn'); btn.disabled = true; btn.textContent = 'جارٍ إنشاء الحساب…';
   authError('joinError', '');
   try{
     const user = await API.signUp({name, email, password: pass, inviteCode: code});
     currentUser = user;
     await syncFromServer();
-    login(user);
-    toast('أهلًا بك في العائلة');
+    login(user, true);
+    toast('تم حفظ حسابك — أهلًا ' + user.name);
   }catch(err){
-    const m = /invite_used/.test(err.code) ? 'استُخدم هذا الكود من قبل'
+    const m = /invite_used/.test(err.code) ? 'استُخدم هذا الكود من قبل — اطلب كودًا جديدًا'
       : /invite_(invalid|revoked|expired)/.test(err.code) ? 'كود الدعوة غير صالح أو منتهي'
       : /email_mismatch/.test(err.code) ? 'هذا الكود صدر لبريد إلكتروني آخر'
+      : /email_taken/.test(err.code) ? 'هذا البريد مسجّل من قبل — سجّل الدخول بدلًا من إنشاء حساب'
       : /weak_password/.test(err.code) ? 'كلمة المرور: 10 أحرف على الأقل وتحتوي رقمًا'
-      : /invite_required/.test(err.code) ? 'تحتاج كود دعوة للانضمام'
-      : ('تعذّر الانضمام: ' + err.message);
+      : /invite_required/.test(err.code) ? 'تحتاج كود دعوة من مدير العائلة'
+      : ('تعذّر إنشاء الحساب: ' + err.message);
     authError('joinError', m);
-  }finally{ btn.disabled = false; btn.textContent = 'انضمام للعائلة'; }
+  }finally{ btn.disabled = false; btn.textContent = 'إنشاء الحساب'; }
 }
 
 /* إعداد أول حساب على خادم جديد */
@@ -2294,9 +2339,18 @@ document.addEventListener('click', e => {
     case 'local-new': localNewUser(); break;
     case 'open-account': openAccountModal(); break;
     case 'copy-invite': {
-      const code = t.dataset.code || '';
-      try { navigator.clipboard.writeText(code); toast('نُسخ الكود'); }
-      catch(e){ toast('انسخ الكود يدويًا: ' + code, 'info'); }
+      copyText(t.dataset.code || '', 'نُسخ الكود');
+      break;
+    }
+    case 'copy-invite-link': {
+      copyText(inviteShareLink(t.dataset.code || ''), 'نُسخ رابط الدعوة');
+      break;
+    }
+    case 'share-invite-whatsapp': {
+      const link = inviteShareLink(t.dataset.code || '');
+      const text = 'انضم إلى مقاضي العائلة: ' + link;
+      const win = window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+      if (!win) copyText(link, 'تم نسخ رابط الدعوة');
       break;
     }
     case 'open-add-member': openAddMember(); break;
@@ -2401,6 +2455,8 @@ document.addEventListener('visibilitychange', function(){
   } catch(e){
     authError('authError', 'تعذّر الوصول إلى الخادم. تحقق من العنوان أو اتركه فارغًا للعمل محليًا.');
   }
+  // رابط دعوة مثل /?code=XXXX-XXXX-XXXX يفتح شاشة إنشاء الحساب مباشرة.
+  applyInviteFromUrl();
 })();
 </script>
 
