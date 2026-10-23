@@ -8,6 +8,12 @@
 - PWA قابلة للتثبيت على أندرويد وآيفون.
 - إشعارات Web Push قياسية (VAPID) — لا Firebase ولا مفاتيح دفع.
 
+## روابط
+
+- **المستودع على GitHub:** https://github.com/gaeth200300-boop/family-groceries
+- **تحميل تطبيق أندرويد (APK):** https://github.com/gaeth200300-boop/family-groceries/releases/latest
+- **نسخة الويب مع الإشعارات:** شغّل `MOBILE-LINK.cmd` (انظر أدناه).
+
 ## التشغيل على الكمبيوتر
 
 ```bat
@@ -16,7 +22,18 @@ start-family.bat
 
 يفتح: `http://localhost:8787` — الخادم نفسه يقدّم الواجهة والـAPI معًا.
 
-## التشغيل على الجوال (أندرويد / آيفون)
+## تثبيت التطبيق على أندرويد (APK)
+
+1. افتح من الجوال: https://github.com/gaeth200300-boop/family-groceries/releases/latest
+2. نزّل `family-groceries.apk` ثم افتحه، واسمح بـ«تثبيت من مصادر غير معروفة» عند الطلب.
+3. يعمل التطبيق مباشرة محليًا على الجهاز (أندرويد 5.1 فأحدث).
+
+للمزامنة مع العائلة من داخل APK: شاشة الدخول ← «إعدادات الخادم» ← أدخل رابط HTTPS الخاص بالخادم (ناتج `MOBILE-LINK.cmd` أو استضافتك).
+
+> **تنبيه:** ملف EXE خاص بويندوز ولا يعمل على الجوال. لأندرويد الصيغة الصحيحة هي APK أعلاه.
+> إشعارات Web Push لا تعمل داخل APK لأن WebView لا يدعمها؛ للإشعارات استخدم نسخة الويب المثبتة (PWA) في القسم التالي.
+
+## نسخة الويب على الجوال (مع الإشعارات)
 
 ```bat
 MOBILE-LINK.cmd
@@ -81,6 +98,7 @@ www/                 واجهة PWA (HTML/CSS/JS) + service worker
 server/src/          Express API + SQLite + Web Push
 server/test/         اختبارات node:test
 scripts/mobile-link.ps1  نفق Cloudflare لرابط الجوال
+.github/workflows/android.yml  بناء APK تلقائيًا على GitHub
 start-family.bat     تشغيل محلي (كمبيوتر)
 MOBILE-LINK.cmd      رابط HTTPS للجوال والكمبيوتر
 ```
