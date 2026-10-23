@@ -9,9 +9,15 @@ no build step and no native dependencies.
 cp .env.example .env
 # set JWT_SECRET to 32+ random characters
 npm install
-npm start          # http://localhost:8787
-npm test           # 40 tests
+npm start          # app + API at http://localhost:8787
+npm test           # 98 tests
 ```
+
+`npm start` serves both the API and `../www` on one origin, which is what makes
+the PWA installable and Web Push possible. For phone access over HTTPS run
+`MOBILE-LINK.cmd` from the project root (Cloudflare Quick Tunnel), then enable
+notifications from the dashboard. VAPID keys are generated on first use into
+`data/vapid.json` unless you set them in `.env`.
 
 The first account to register becomes the household owner. Set
 `REQUIRE_INVITE=true` (the default) immediately afterwards.

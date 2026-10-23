@@ -4,12 +4,13 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { getDb } from "./db.js";
 import { HttpError } from "./auth.js";
 import { authRouter } from "./routes/auth.js";
 import { listsRouter } from "./routes/lists.js";
+import { pushRouter } from "./routes/push.js";
 
 export function createApp() {
   const app = express();
@@ -25,16 +26,24 @@ export function createApp() {
         useDefaults: true,
         directives: {
           "default-src": ["'self'"],
-          "script-src": ["'self'"],
+          // The app is a single static HTML file with inline scripts and two
+          // pinned CDN libraries. Serving it from this origin means these have
+          // to be allowed explicitly; every string the app renders from data is
+          // escaped in index.html.
+          "script-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
           // The app is packaged inside the binary; no remote script is needed.
           "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
           "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
           "img-src": ["'self'", "data:", "blob:"],
           "connect-src": ["'self'"],
+          "worker-src": ["'self'"],
           "object-src": ["'none'"],
           "frame-ancestors": ["'none'"],
           "base-uri": ["'self'"],
           "form-action": ["'self'"],
+          // Kept off so the same app can be opened over plain HTTP on the
+          // local machine as well as HTTPS through the tunnel.
+          "upgrade-insecure-requests": null,
         },
       },
       crossOriginEmbedderPolicy: false,
@@ -67,14 +76,47 @@ export function createApp() {
 
   app.use("/api/auth", authRouter);
   app.use("/api", listsRouter);
+  app.use("/api", pushRouter);
 
   app.use("/api", (_req, res) => res.status(404).json({ error: "not_found", message: "No such endpoint" }));
+
+  /* --------------------------------------------------------- PWA + mobile
+   * Serving www from the API process gives the phone and the desktop one HTTPS
+   * origin for the app, the session cookie, the service worker and push. The
+   * small injected config file tells api.js to talk to the origin it was
+   * loaded from instead of asking the user to type a server URL.
+   */
+  const wwwDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "www");
+
+  app.get("/fg-config.js", (req, res) => {
+    const origin = `${req.protocol}://${req.get("host")}`;
+    res
+      .type("application/javascript")
+      .set("Cache-Control", "no-store")
+      .send(`window.FG_API_BASE = ${JSON.stringify(origin)};\n`);
+  });
+
+  app.use(
+    express.static(wwwDir, {
+      extensions: ["html"],
+      setHeaders(res, filePath) {
+        // A stale shell or service worker would keep an old build on phones.
+        if (/(?:index\.html|sw\.js)$/.test(filePath)) res.setHeader("Cache-Control", "no-cache");
+      },
+    }),
+  );
 
   // Serve a privacy-policy page if one is bundled, so the App Store URL can point here.
   const publicDir = path.resolve("public");
   if (fs.existsSync(publicDir)) {
     app.use("/legal", express.static(publicDir, { extensions: ["html"] }));
   }
+
+  // Client-side routes (if any) fall back to the app shell.
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/")) return next();
+    res.sendFile(path.join(wwwDir, "index.html"));
+  });
 
   app.use((err, _req, res, _next) => {
     if (err instanceof HttpError) {

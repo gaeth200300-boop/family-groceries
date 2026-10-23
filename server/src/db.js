@@ -127,6 +127,19 @@ function migrate(d) {
     );
     CREATE INDEX IF NOT EXISTS ix_notif_household ON notifications(household_id, ts DESC);
 
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id            TEXT PRIMARY KEY,
+      household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+      user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      endpoint      TEXT NOT NULL UNIQUE,
+      p256dh        TEXT NOT NULL,
+      auth          TEXT NOT NULL,
+      user_agent    TEXT,
+      created_at    INTEGER NOT NULL,
+      last_success_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS ix_push_household ON push_subscriptions(household_id);
+
     CREATE TABLE IF NOT EXISTS audit_log (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       household_id TEXT,
@@ -152,6 +165,18 @@ export function audit(householdId, userId, action, detail, ip) {
        VALUES (?, ?, ?, ?, ?, ?)`,
     )
     .run(householdId ?? null, userId ?? null, action, detail ?? null, ip ?? null, now());
+}
+
+/** Adds one in-app notification. `userId` null means the whole household. */
+export function addNotification(householdId, { userId = null, type = "list", text }) {
+  const id = newId("n");
+  getDb()
+    .prepare(
+      `INSERT INTO notifications (id, household_id, user_id, type, text, ts)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(id, householdId, userId, type, text, now());
+  return id;
 }
 
 /* ------------------------------------------------- bootstrap a new household */

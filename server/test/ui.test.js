@@ -14,6 +14,9 @@ process.env.DATABASE_URL = ":memory:";
 process.env.JWT_SECRET = "test-secret-that-is-definitely-long-enough-32";
 process.env.REQUIRE_INVITE = "false";
 process.env.AUTH_RATE_LIMIT_MAX = "1000";
+// A local .env may define SETUP_TOKEN; pin the value for this test process so
+// the UI setup test is deterministic in both CI and a developer machine.
+process.env.SETUP_TOKEN = "test-setup-token-0123456789";
 
 const { createApp } = await import("../src/index.js");
 
@@ -112,6 +115,7 @@ test("first-run setup creates the household owner and enters the app", async () 
   d.querySelector("#suEmail").value = "ui-owner@fam.test";
   d.querySelector("#suPass").value = "correct horse 1";
   d.querySelector("#suHouse").value = "عائلتي";
+  d.querySelector("#suToken").value = "test-setup-token-0123456789";
   submit(w, d.querySelector("#setupForm"));
   await tick(w, 500);
 

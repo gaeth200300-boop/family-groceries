@@ -2,6 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { getDb, newId, now, audit } from "../db.js";
 import { requireAuth, wrap, badRequest, notFound } from "../auth.js";
+import { notifyHousehold } from "../notify.js";
 
 export const listsRouter = express.Router();
 listsRouter.use(requireAuth);
@@ -226,6 +227,10 @@ listsRouter.post(
     }
 
     audit(req.householdId, req.user.id, "list.finished", active.id, req.ip);
+    notifyHousehold(req, {
+      type: "list",
+      text: `${req.user.name} أنهى ${active.name} وبدأ الأسبوع ${active.week + 1}`,
+    });
     res.json({ ok: true, archivedId: active.id, newWeek: active.week + 1 });
   }),
 );
@@ -284,6 +289,12 @@ listsRouter.post(
       body.purchased ? req.user.id : null, body.purchased ? now() : null, now());
 
     audit(req.householdId, req.user.id, "item.added", id, req.ip);
+    notifyHousehold(req, {
+      type: "add",
+      text: `${req.user.name} أضاف «${body.name.trim()}» إلى قائمة المقاضي`,
+      // The requester also gets the confirmation on their own phone.
+      includeActor: true,
+    });
     res.status(201).json(shapeItem(d.prepare(`SELECT * FROM items WHERE id = ?`).get(id)));
   }),
 );
@@ -297,6 +308,9 @@ listsRouter.patch(
       .prepare(`SELECT * FROM items WHERE id = ? AND household_id = ?`)
       .get(req.params.id, req.householdId);
     if (!existing) throw notFound("Item not found");
+
+    const purchaseChanged =
+      body.purchased !== undefined && Boolean(body.purchased) !== Boolean(existing.purchased);
 
     const map = {
       name: "name", qty: "qty", unit: "unit", price: "price", actualPrice: "actual_price",
@@ -328,6 +342,23 @@ listsRouter.patch(
         .run(...vals, existing.id, req.householdId);
     }
     audit(req.householdId, req.user.id, "item.updated", existing.id, req.ip);
+
+    if (purchaseChanged) {
+      notifyHousehold(req, {
+        type: body.purchased ? "buy" : "edit",
+        text: body.purchased
+          ? `${req.user.name} سجّل شراء «${existing.name}»`
+          : `${req.user.name} ألغى شراء «${existing.name}»`,
+        push: Boolean(body.purchased),
+      });
+    } else if (sets.length) {
+      notifyHousehold(req, {
+        type: "edit",
+        text: `${req.user.name} عدّل «${body.name ?? existing.name}» في قائمة المقاضي`,
+        push: false,
+      });
+    }
+
     res.json(shapeItem(d.prepare(`SELECT * FROM items WHERE id = ?`).get(existing.id)));
   }),
 );
@@ -336,11 +367,16 @@ listsRouter.delete(
   "/items/:id",
   wrap(async (req, res) => {
     const d = getDb();
-    const r = d
-      .prepare(`DELETE FROM items WHERE id = ? AND household_id = ?`)
-      .run(req.params.id, req.householdId);
-    if (!r.changes) throw notFound("Item not found");
+    const existing = d
+      .prepare(`SELECT * FROM items WHERE id = ? AND household_id = ?`)
+      .get(req.params.id, req.householdId);
+    if (!existing) throw notFound("Item not found");
+    d.prepare(`DELETE FROM items WHERE id = ? AND household_id = ?`).run(req.params.id, req.householdId);
     audit(req.householdId, req.user.id, "item.deleted", req.params.id, req.ip);
+    notifyHousehold(req, {
+      type: "del",
+      text: `${req.user.name} حذف «${existing.name}» من القائمة`,
+    });
     res.json({ ok: true });
   }),
 );

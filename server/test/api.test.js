@@ -10,6 +10,8 @@ process.env.JWT_SECRET = "test-secret-that-is-definitely-long-enough-32";
 // It is safe here: the DB starts empty, so only the very first signup can
 // bootstrap a household. Every later signup still requires an invite.
 process.env.REQUIRE_INVITE = "false";
+// Neutralise a developer's local .env so the test is reproducible.
+process.env.SETUP_TOKEN = "";
 process.env.AUTH_RATE_LIMIT_MAX = "1000";
 process.env.CORS_ORIGINS = "";
 

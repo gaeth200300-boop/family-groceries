@@ -512,6 +512,18 @@ mark{background:var(--primary-soft);color:var(--primary);border-radius:4px;paddi
   .search-panel{margin:70px 12px 0}
 }
 @media(max-width:420px){.member-picker{grid-template-columns:repeat(2,1fr)}}
+
+/* ======================= إشعارات الجوال ======================= */
+.push-card{display:flex;align-items:center;gap:14px;padding:15px 18px;margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius);background:linear-gradient(135deg,var(--primary-soft),var(--surface));box-shadow:var(--shadow)}
+.push-card .pc-ic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--surface);color:var(--primary);border:1px solid var(--border);flex:none}
+.push-card .pc-main{flex:1;min-width:0}
+.push-card .pc-main b{display:block;font-size:14px;margin-bottom:2px}
+.push-card .pc-main p{margin:0;color:var(--muted);font-size:12.5px;line-height:1.7}
+.push-card .pc-note{font-size:11.5px;color:var(--faint);margin-top:4px;line-height:1.7}
+.push-card .pc-actions{display:flex;gap:8px;flex:none;flex-wrap:wrap}
+.push-card.on{border-color:var(--primary)}
+.push-card.off .pc-ic{color:var(--amber);background:var(--amber-bg);border-color:transparent}
+@media(max-width:700px){.push-card{align-items:flex-start;flex-wrap:wrap}.push-card .pc-actions{width:100%}.push-card .pc-actions .btn{flex:1}}
 </style>
 </head>
 <body>
@@ -564,6 +576,8 @@ mark{background:var(--primary-soft);color:var(--primary);border-radius:4px;paddi
         <input class="field" id="suPass" type="password" autocomplete="new-password" placeholder="10 أحرف على الأقل مع رقم" required>
         <label class="f-label" for="suHouse">اسم العائلة</label>
         <input class="field" id="suHouse" type="text" placeholder="عائلتي" value="عائلتي">
+        <label class="f-label" for="suToken">رمز الإعداد (إن فعّله الخادم)</label>
+        <input class="field" id="suToken" type="password" autocomplete="off" placeholder="اتركه فارغًا إن لم يُطلب">
         <button class="btn primary lg full" type="submit" id="setupBtn">إنشاء الحساب</button>
       </form>
       <p class="auth-error" id="setupError" hidden></p>
@@ -667,6 +681,7 @@ mark{background:var(--primary-soft);color:var(--primary);border-radius:4px;paddi
   اتركه فارغًا ('') ليعمل التطبيق محليًا على الجهاز فقط بلا مزامنة.
   يمكن أيضًا تغييره وقت التشغيل من شاشة الدخول: إعدادات الخادم.
 ============================================================================= -->
+<script src="fg-config.js"></script>
 <script>window.FG_API_BASE = window.FG_API_BASE || '';</script>
 <script src="api.js"></script>
 <script>
@@ -916,6 +931,7 @@ function applyServerState(d){
 }
 
 /* يسحب الحالة الكاملة من الخادم، بما فيها أعضاء العائلة */
+let lastServerSig = '';
 async function syncFromServer(){
   if (!isServerMode()) return false;
   let [d, roster] = await Promise.all([
@@ -928,13 +944,27 @@ async function syncFromServer(){
           const again = await API.fetchState(); if (again) d = again; }
     catch(e){ /* keep the placeholder; the list can be created later */ }
   }
+  // لا نعيد رسم الواجهة إذا لم يتغيّر شيء — مهم للتحقق الدوري كل بضع ثوانٍ.
+  const sig = JSON.stringify([d.currentList, d.archived, d.notifications, d.budget, d.week,
+    roster && roster.members ? roster.members : null]);
+  if (sig === lastServerSig) return false;
+  lastServerSig = sig;
   applyServerState(d);
   if (roster && roster.members) state.members = membersFromServer(roster.members);
-  if (false) {
-    // عائلة جديدة بلا قائمة: أنشئ أول أسبوع حتى لا تبقى الواجهة فارغة
-    try { await API.bootstrapList(d.week || 1, d.budget || 600); await syncFromServer(); } catch(e){}
-  }
   return true;
+}
+
+/* مزامنة مؤجلة بعد أي عملية: يعطي الخادم فرصة لتسجيل الإشعار ثم نسحبه */
+let syncTimer = null;
+function scheduleSync(delay = 900){
+  if (!isServerMode()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    if (!currentUser) return;
+    syncFromServer()
+      .then(changed => { if (changed) refresh(); })
+      .catch(() => {});
+  }, delay);
 }
 let bc = null;
 try{
@@ -956,7 +986,10 @@ function commit(){
 
 /* يحفظ تعديلًا واحدًا: على الخادم في الوضع المتصل، أو محليًا في الوضع المحلي */
 function saveOp(op){
-  if (isServerMode()){ API.push(op); return Promise.resolve(); }
+  if (isServerMode()){
+    API.push(op).then(() => scheduleSync(), () => scheduleSync());
+    return Promise.resolve();
+  }
   commit();
   return Promise.resolve();
 }
@@ -972,6 +1005,9 @@ window.addEventListener('storage', e => {
 
 /* ---------- الإشعارات والتوست ---------- */
 function notify(type, text){
+  // في وضع الخادم يصدر الإشعار من الخادم ويظهر لكل العائلة؛ لا نضيف نسخة محلية
+  // حتى لا يتكرر الحدث نفسه في الجرس بعد المزامنة التالية.
+  if (isServerMode()) return;
   state.notifications.unshift({id:uid('n'), type, text, ts:Date.now(), read:false});
   if (state.notifications.length > 60) state.notifications.length = 60;
 }
@@ -1122,6 +1158,8 @@ function vDashboard(){
   '<p class="page-sub">' + todayLine() + ' · قائمة ' + weekName() + ' <span class="sub-range">(' + fmtRange(L.createdAt, Date.now()) + ')</span></p></div>' +
   '<div class="head-actions"><button class="btn ghost" data-action="nav" data-view="shopping"><i data-lucide="shopping-cart"></i>وضع التسوق</button>' +
   '<button class="btn primary" data-action="open-add"><i data-lucide="plus"></i>إضافة مقاضي</button></div></div>' +
+
+  pushBanner() +
 
   '<div class="stats-grid">' +
   '<div class="card budget-card"><div class="bc-top"><span class="bc-label"><i data-lucide="wallet"></i>ميزانية الأسبوع</span>' +
@@ -1839,8 +1877,126 @@ function renderNotifPop(){
   icons();
 }
 
-/* ---------- الثيم ---------- */
-function applyTheme(t){
+/* ---------- إشعارات الجوال (Web Push) ---------- */
+const PUSH = { checked:false, supported:false, permission:'default', subscribed:false, busy:false, ios:false, standalone:false };
+const pushIsIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const pushStandalone = () =>
+  (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+function pushSupported(){
+  return isServerMode() && window.isSecureContext &&
+    'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+function urlBase64ToUint8Array(base64String){
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+function pushBanner(){
+  if (!isServerMode()) return '';
+  if (PUSH.ios && !PUSH.standalone){
+    return '<div class="push-card off"><span class="pc-ic"><i data-lucide="smartphone"></i></span>' +
+      '<div class="pc-main"><b>إشعارات الجوال على آيفون</b>' +
+      '<p>افتح هذا الرابط من <b>سفاري</b>، واضغط «مشاركة» ثم «إضافة إلى الشاشة الرئيسية»، ثم افتح التطبيق من الأيقونة الجديدة. بعدها يظهر زر تفعيل الإشعارات (يتطلب iOS 16.4 أو أحدث).</p></div></div>';
+  }
+  if (!pushSupported()){
+    if (window.isSecureContext === false){
+      return '<div class="push-card off"><span class="pc-ic"><i data-lucide="shield-alert"></i></span>' +
+        '<div class="pc-main"><b>الإشعارات تحتاج رابطًا آمنًا</b><p>افتح التطبيق عبر رابط HTTPS (رابط الجوال من MOBILE-LINK.cmd) ليعمل التنبيه على الجوال.</p></div></div>';
+    }
+    return '';
+  }
+  if (PUSH.permission === 'denied'){
+    return '<div class="push-card off"><span class="pc-ic"><i data-lucide="bell-off"></i></span>' +
+      '<div class="pc-main"><b>الإشعارات محظورة من المتصفح</b><p>افتح إعدادات هذا الموقع في المتصفح واسمح بالإشعارات، ثم أعد تحميل الصفحة.</p></div></div>';
+  }
+  if (PUSH.subscribed){
+    return '<div class="push-card on"><span class="pc-ic"><i data-lucide="bell-ring"></i></span>' +
+      '<div class="pc-main"><b>إشعارات الجوال مفعّلة</b><p>يصلك تنبيه على هذا الجهاز عند إضافة أي طلب أو تسجيل شراء.</p></div>' +
+      '<div class="pc-actions"><button class="btn ghost sm" data-action="test-push"><i data-lucide="send"></i>إرسال تجربة</button>' +
+      '<button class="btn ghost sm" data-action="disable-push"><i data-lucide="bell-off"></i>إيقاف</button></div></div>';
+  }
+  return '<div class="push-card"><span class="pc-ic"><i data-lucide="bell-plus"></i></span>' +
+    '<div class="pc-main"><b>فعّل إشعارات الجوال</b><p>عندما يطلب أحد أفراد العائلة شيئًا يصلك تنبيه على جوالك حتى لو كان التطبيق مغلقًا.</p>' +
+    '<div class="pc-note">أندرويد من كروم، وآيفون بعد إضافة التطبيق إلى الشاشة الرئيسية.</div></div>' +
+    '<div class="pc-actions"><button class="btn primary sm" data-action="enable-push"' + (PUSH.busy ? ' disabled' : '') + '>' +
+    '<i data-lucide="bell-ring"></i>' + (PUSH.busy ? 'جارٍ التفعيل…' : 'تفعيل الإشعارات') + '</button></div></div>';
+}
+async function initPush(){
+  if (!isServerMode()) return;
+  PUSH.ios = pushIsIOS(); PUSH.standalone = pushStandalone();
+  try {
+    if ('serviceWorker' in navigator) await navigator.serviceWorker.register('./sw.js').catch(() => {});
+    if (!window.isSecureContext || !('PushManager' in window) || !('Notification' in window)){
+      PUSH.checked = true;
+      return;
+    }
+    PUSH.supported = true;
+    PUSH.permission = Notification.permission;
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000)),
+    ]);
+    const sub = await reg.pushManager.getSubscription();
+    PUSH.subscribed = !!sub;
+  } catch(e){ /* يبقى الزر ظاهرًا وتظهر رسالة عند المحاولة */ }
+  PUSH.checked = true;
+  if (currentUser) refresh();
+}
+async function enablePush(){
+  if (PUSH.busy) return;
+  if (!pushSupported()){ toast('الإشعارات تحتاج فتح التطبيق عبر رابط HTTPS', 'warn'); return; }
+  PUSH.busy = true; if (currentUser) refresh();
+  try {
+    const perm = await Notification.requestPermission();
+    PUSH.permission = perm;
+    if (perm !== 'granted') throw new Error('لم يُسمح بالإشعارات من المتصفح');
+    const info = await API.pushKey();
+    if (!info || !info.publicKey) throw new Error('الخادم لا يوفّر مفتاح الإشعارات');
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub){
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(info.publicKey),
+      });
+    }
+    await API.pushSubscribe(sub.toJSON());
+    PUSH.subscribed = true;
+    toast('تم تفعيل إشعارات الجوال');
+  } catch(err){
+    toast('تعذّر تفعيل الإشعارات: ' + err.message, 'warn');
+  }
+  PUSH.busy = false;
+  if (currentUser) refresh();
+}
+async function disablePush(silent){
+  try {
+    if ('serviceWorker' in navigator){
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      if (sub){
+        try { await API.pushUnsubscribe(sub.endpoint); } catch(e){}
+        await sub.unsubscribe();
+      }
+    }
+  } catch(e){}
+  PUSH.subscribed = false;
+  if (!silent && currentUser){ toast('أُوقفت إشعارات الجوال على هذا الجهاز', 'warn'); refresh(); }
+}
+async function testPush(){
+  try {
+    const r = await API.pushTest();
+    if (r && r.sent > 0) toast('أُرسل تنبيه تجريبي — تحقق من شريط الإشعارات');
+    else if (r && r.subscriptions === 0) toast('لا يوجد اشتراك مسجّل؛ فعّل الإشعارات أولًا', 'warn');
+    else toast('وصل الطلب للخادم، لكن المتصفح لم يؤكد التسليم', 'info');
+  } catch(err){ toast('تعذّر إرسال التجربة: ' + err.message, 'warn'); }
+}
+
+/* ---------- الثيم ---------- */function applyTheme(t){
   document.documentElement.dataset.theme = t;
   localStorage.setItem('fg_theme', t);
   $('#themeBtn').innerHTML = '<i data-lucide="' + (t === 'dark' ? 'sun' : 'moon') + '"></i>';
@@ -1958,10 +2114,19 @@ function login(m, silent){
   dashSig = '';
   renderChrome(); switchView('dashboard');
   if (!silent) toast('أهلًا ' + m.name);
+  // يسأل الخادم عن اشتراك الإشعارات الحالي ويعرض بطاقة التفعيل إن لزم.
+  initPush();
 }
 
 async function logout(){
-  try { if (API && API.isSignedIn()) await API.signOut(); } catch(e){}
+  try {
+    if (API && API.isSignedIn()){
+      // لا نترك اشتراك إشعارات مرتبطًا بحساب خرج من هذا الجهاز.
+      await disablePush(true);
+      await API.signOut();
+    }
+  } catch(e){}
+  PUSH.subscribed = false; PUSH.checked = false;
   currentUser = null; sessionStorage.removeItem('fg_user');
   closeModal(); settleConfirm(false); closeSearch(); closeNotifPop();
   $('#app').hidden = true; $('#auth').hidden = false;
@@ -2017,10 +2182,14 @@ async function doSetup(e){
   e.preventDefault();
   const name = $('#suName').value.trim(), email = $('#suEmail').value.trim();
   const pass = $('#suPass').value, house = $('#suHouse').value.trim() || 'عائلتي';
+  const setupToken = ($('#suToken') && $('#suToken').value.trim()) || '';
   const btn = $('#setupBtn'); btn.disabled = true; btn.textContent = 'جارٍ الإنشاء…';
   authError('setupError', '');
   try{
-    const user = await API.signUp({name, email, password: pass, householdName: house});
+    const user = await API.signUp(Object.assign(
+      {name, email, password: pass, householdName: house},
+      setupToken ? {setupToken} : {}
+    ));
     currentUser = user;
     await syncFromServer();
     login(user);
@@ -2072,6 +2241,9 @@ document.addEventListener('click', e => {
       else commit();
       renderChrome(); renderNotifPop(); break;
     case 'toggle-theme': applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); break;
+    case 'enable-push': enablePush(); break;
+    case 'disable-push': disablePush(false); break;
+    case 'test-push': testPush(); break;
     case 'logout': logout(); break;
     case 'toggle-cat': { const g = t.closest('.group'); const c = t.dataset.cat;
       if (collapsedCats.has(c)) collapsedCats.delete(c); else collapsedCats.add(c);
@@ -2194,6 +2366,15 @@ loadState();
 initTheme();
 renderAuth();
 icons();
+
+/* تحديث خفيف كل 20 ثانية: طلبات بقية العائلة تظهر دون إعادة تحميل الصفحة. */
+setInterval(function(){
+  if (!currentUser || !isServerMode() || document.visibilityState !== 'visible') return;
+  syncFromServer().then(changed => { if (changed) refresh(); }).catch(() => {});
+}, 20000);
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible' && currentUser && isServerMode()) scheduleSync(200);
+});
 
 /* استعادة الجلسة من الخادم، أو الدخول المحلي إن لم يكن خادم */
 (async function boot(){

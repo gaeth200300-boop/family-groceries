@@ -245,6 +245,17 @@
   function deleteItem(id) { return request('DELETE', '/api/items/' + encodeURIComponent(id)); }
   function markNotificationsRead(ids) { return request('POST', '/api/notifications/read', { ids: ids || undefined }); }
 
+  /* ------------------------------------------------------------ web push */
+
+  function pushKey() { return request('GET', '/api/push/key'); }
+  function pushSubscribe(subscription) {
+    return request('POST', '/api/push/subscribe', subscription);
+  }
+  function pushUnsubscribe(endpoint) {
+    return request('POST', '/api/push/unsubscribe', { endpoint: endpoint });
+  }
+  function pushTest() { return request('POST', '/api/push/test', {}); }
+
   /* ------------------------------------------------- outbox / offline queue */
 
   function enqueue(job) {
@@ -352,6 +363,9 @@
     setBudget: setBudget, finishList: finishList,
     addItem: addItem, updateItem: updateItem, deleteItem: deleteItem,
     markNotificationsRead: markNotificationsRead,
+
+    pushKey: pushKey, pushSubscribe: pushSubscribe,
+    pushUnsubscribe: pushUnsubscribe, pushTest: pushTest,
 
     push: push, drain: drain,
     pendingCount: function () { return outbox.length; },

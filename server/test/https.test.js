@@ -18,6 +18,7 @@ import { JSDOM, VirtualConsole } from "jsdom";
 process.env.NODE_ENV = "production";
 process.env.JWT_SECRET = "https-test-secret-definitely-long-enough-32";
 process.env.REQUIRE_INVITE = "false";
+process.env.SETUP_TOKEN = "";
 process.env.TRUST_PROXY = "false";
 process.env.AUTH_RATE_LIMIT_MAX = "1000";
 process.env.DATABASE_URL = ":memory:";

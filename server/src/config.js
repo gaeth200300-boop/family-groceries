@@ -55,7 +55,11 @@ const schema = z.object({
    * would have to switch the invite gate off to claim the household, leaving a
    * window in which anyone who finds the URL first becomes the owner.
    */
-  SETUP_TOKEN: z.string().min(16).optional(),
+  SETUP_TOKEN: z.preprocess(
+    // An empty line in .env means "not configured", not an invalid 0-char secret.
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().min(16).optional(),
+  ),
 
   // Legacy bootstrap switch. Leave true in production; prefer SETUP_TOKEN.
   REQUIRE_INVITE: z
@@ -66,6 +70,16 @@ const schema = z.object({
   // Extra throttle on credential endpoints, per IP.
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(15 * 60 * 1000),
+
+  /**
+   * Web Push (optional). Leave both keys unset and the server generates a
+   * VAPID key pair on first boot, storing it next to the SQLite database.
+   * Set them explicitly when running several replicas so every instance can
+   * sign the same push messages.
+   */
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().default("mailto:owner@family.home"),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -92,9 +106,21 @@ export const config = {
   requireInvite: env.REQUIRE_INVITE,
   authRateLimit: { max: env.AUTH_RATE_LIMIT_MAX, windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS },
   corsOrigins: env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean),
+  vapidPublicKey: env.VAPID_PUBLIC_KEY ?? null,
+  vapidPrivateKey: env.VAPID_PRIVATE_KEY ?? null,
+  vapidSubject: env.VAPID_SUBJECT,
 };
 
 if (config.isProd && config.jwtSecret === "change-me-change-me-change-me-change-me32") {
   console.error("\nRefusing to start: JWT_SECRET is still the example value.\n");
+  process.exit(1);
+}
+
+// Web Push either uses both configured keys or generates a local pair; a single
+// stray key almost always means a copy/paste mistake, so fail loudly.
+if (Boolean(config.vapidPublicKey) !== Boolean(config.vapidPrivateKey)) {
+  console.error(
+    "\nInvalid environment configuration:\n  - VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be set together (or both left empty).\n",
+  );
   process.exit(1);
 }
