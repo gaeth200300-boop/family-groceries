@@ -11,8 +11,9 @@
 ## روابط
 
 - **المستودع على GitHub:** https://github.com/gaeth200300-boop/family-groceries
+- **فتح التطبيق مباشرة على الجوال:** https://gaeth200300-boop.github.io/family-groceries/
 - **تحميل تطبيق أندرويد (APK):** https://github.com/gaeth200300-boop/family-groceries/releases/latest
-- **نسخة الويب مع الإشعارات:** شغّل `MOBILE-LINK.cmd` (انظر أدناه).
+- **تشغيل الخادم والرابط الحي:** شغّل `MOBILE-LINK.cmd` (انظر أدناه).
 
 ## التشغيل على الكمبيوتر
 
@@ -39,6 +40,8 @@ start-family.bat
 ```bat
 MOBILE-LINK.cmd
 ```
+
+أو افتح الرابط الثابت: https://gaeth200300-boop.github.io/family-groceries/ — يحوّلك تلقائيًا إلى النفق الحالي.
 
 سيطبع رابطًا عامًّا بصيغة `https://....trycloudflare.com` وينسخه للحافظة:
 
