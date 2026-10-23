@@ -75,8 +75,10 @@ const publicUser = (u) => ({
 
 /**
  * POST /api/auth/register
- * Invite-only by default: a valid invite code is required to create an account.
- * The FIRST account bootstraps a household (env REQUIRE_INVITE=false only).
+ * The FIRST account bootstraps a household. After that:
+ *   - a supplied invite code is validated and redeemed; otherwise
+ *   - ALLOW_OPEN_SIGNUP=true joins the oldest household as a member; otherwise
+ *   - an invite is required.
  */
 const registerSchema = z.object({
   email: z.string().email().max(254),
@@ -93,7 +95,7 @@ authRouter.post(
   wrap(async (req, res) => {
     const body = registerSchema.parse(req.body);
     const emailLower = body.email.trim().toLowerCase();
-    const pwProblem = passwordProblem(body.password);
+    const pwProblem = passwordProblem(body.password, config.allowWeakPasswords);
     if (pwProblem) throw badRequest(`Password ${pwProblem}`, "weak_password");
 
     // First-run bootstrap: no users exist anywhere yet.
@@ -134,29 +136,59 @@ authRouter.post(
       return res.status(201).json({ user: publicUser(user), ...session });
     }
 
-    // Every account after the first requires a valid invite. Unreachable while a
-    // setup token is configured, because the branch above always returns.
-    if (!body.inviteCode) {
+    const d = getDb();
+    const inviteCode = body.inviteCode?.trim().toUpperCase() || "";
+
+    // A supplied invite code always wins, so admin invites and single-use
+    // general invites keep working even when open signup is enabled.
+    if (inviteCode) {
+      const found = findRedeemableInvite(inviteCode, emailLower);
+      if (!found.ok) {
+        const messages = {
+          invalid: "That invite code is not valid",
+          revoked: "That invite code was revoked",
+          used: "That invite code has already been used",
+          expired: "That invite code has expired",
+          email_mismatch: "That invite code was issued to a different email address",
+        };
+        throw forbidden(messages[found.reason], `invite_${found.reason}`);
+      }
+
+      const inv = found.invite;
+
+      // Checked only now, once a valid invite is in hand. Doing it earlier would
+      // let a stranger enumerate which addresses belong to the household by
+      // comparing 409 "email taken" against 403 "invite required".
+      if (findUserByEmail(emailLower)) {
+        throw conflict("That email is already registered", "email_taken");
+      }
+
+      const userId = newId("u");
+      const ts = now();
+      d.prepare(
+        `INSERT INTO users (id, household_id, email, email_lower, name, password_hash, role, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(userId, inv.household_id, body.email.trim(), emailLower, body.name.trim(),
+        hashPassword(body.password), inv.role, ts);
+      redeemInvite(inv.id, userId);
+      audit(inv.household_id, userId, "auth.register.invited", `invite=${inv.id}`, req.ip);
+
+      const user = findUserById(userId);
+      const session = issueSession(res, user, req);
+      return res.status(201).json({ user: publicUser(user), ...session });
+    }
+
+    if (!config.allowOpenSignup) {
       throw forbidden("An invite code is required to join", "invite_required");
     }
-    const found = findRedeemableInvite(body.inviteCode.trim().toUpperCase(), emailLower);
-    if (!found.ok) {
-      const messages = {
-        invalid: "That invite code is not valid",
-        revoked: "That invite code was revoked",
-        used: "That invite code has already been used",
-        expired: "That invite code has expired",
-        email_mismatch: "That invite code was issued to a different email address",
-      };
-      throw forbidden(messages[found.reason], `invite_${found.reason}`);
+
+    // Open family signup. This app is intentionally single-household, so join
+    // the oldest household. New accounts are always regular members; an admin
+    // can promote them later from the Family screen.
+    const household = d.prepare(`SELECT id FROM households ORDER BY created_at ASC, id ASC LIMIT 1`).get();
+    if (!household) {
+      throw forbidden("No household has been set up yet", "no_household");
     }
-
-    const d = getDb();
-    const inv = found.invite;
-
-    // Checked only now, once a valid invite is in hand. Doing it earlier would
-    // let a stranger enumerate which addresses belong to the household by
-    // comparing 409 "email taken" against 403 "invite required".
     if (findUserByEmail(emailLower)) {
       throw conflict("That email is already registered", "email_taken");
     }
@@ -165,11 +197,10 @@ authRouter.post(
     const ts = now();
     d.prepare(
       `INSERT INTO users (id, household_id, email, email_lower, name, password_hash, role, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(userId, inv.household_id, body.email.trim(), emailLower, body.name.trim(),
-      hashPassword(body.password), inv.role, ts);
-    redeemInvite(inv.id, userId);
-    audit(inv.household_id, userId, "auth.register.invited", `invite=${inv.id}`, req.ip);
+       VALUES (?, ?, ?, ?, ?, ?, 'member', ?)`,
+    ).run(userId, household.id, body.email.trim(), emailLower, body.name.trim(),
+      hashPassword(body.password), ts);
+    audit(household.id, userId, "auth.register.open", emailLower, req.ip);
 
     const user = findUserById(userId);
     const session = issueSession(res, user, req);
@@ -179,26 +210,37 @@ authRouter.post(
 
 /* ----------------------------------------------------------------- signin */
 
-const loginSchema = z.object({
-  email: z.string().email().max(254),
-  password: z.string().min(1).max(200),
-});
+const loginSchema = z
+  .object({
+    email: z.string().email().max(254).optional(),
+    // The member picker sends the public roster id instead of an email.
+    userId: z.string().min(1).max(64).optional(),
+    password: z.string().min(1).max(200),
+  })
+  .refine((v) => !!(v.email || v.userId), {
+    message: "email or userId is required",
+    path: ["email"],
+  });
 
 authRouter.post(
   "/login",
   credentialLimiter,
   wrap(async (req, res) => {
     const body = loginSchema.parse(req.body);
-    const user = findUserByEmail(body.email.trim().toLowerCase());
+    const emailLower = body.email ? body.email.trim().toLowerCase() : null;
+    const user = body.userId ? findUserById(body.userId) : findUserByEmail(emailLower);
+    const identifier = emailLower || body.userId || "";
 
     // Always run a hash comparison so response time does not reveal whether the
     // account exists.
     const stored = user?.password_hash ?? hashPassword("placeholder-not-a-real-password");
-    const ok = verifyPassword(body.password, stored);
+    const passwordOk = verifyPassword(body.password, stored);
+    const pinOk = !!user && !!config.familyPin && safeEqual(body.password, config.familyPin);
+    const ok = passwordOk || pinOk;
 
     if (!user || !ok) {
-      audit(user?.household_id ?? null, user?.id ?? null, "auth.login.failed", body.email, req.ip);
-      throw unauthorized("Email or password is incorrect", "bad_credentials");
+      audit(user?.household_id ?? null, user?.id ?? null, "auth.login.failed", identifier, req.ip);
+      throw unauthorized("Email, password, or access code is incorrect", "bad_credentials");
     }
     if (user.disabled_at) {
       audit(user.household_id, user.id, "auth.login.disabled", "", req.ip);
@@ -206,9 +248,42 @@ authRouter.post(
     }
 
     getDb().prepare(`UPDATE users SET last_login_at = ? WHERE id = ?`).run(now(), user.id);
-    audit(user.household_id, user.id, "auth.login.ok", "", req.ip);
+    audit(user.household_id, user.id, "auth.login.ok", pinOk && !passwordOk ? "shared_pin" : "", req.ip);
     const session = issueSession(res, user, req);
     res.json({ user: publicUser(user), ...session });
+  }),
+);
+
+/* --------------------------------------------------- public member roster */
+
+/**
+ * GET /api/auth/roster
+ * Powers the family member picker before sign-in. Deliberately public, but it
+ * exposes only names and roles — never emails, password hashes or tokens.
+ * This app is single-household, so the oldest household is the roster.
+ */
+authRouter.get(
+  "/roster",
+  wrap(async (_req, res) => {
+    const d = getDb();
+    const household = d
+      .prepare(`SELECT id FROM households ORDER BY created_at ASC, id ASC LIMIT 1`)
+      .get();
+    const members = household
+      ? d
+          .prepare(
+            `SELECT id, name, role FROM users
+             WHERE household_id = ? AND disabled_at IS NULL
+             ORDER BY created_at ASC, id ASC`,
+          )
+          .all(household.id)
+      : [];
+    res.set("Cache-Control", "no-store");
+    res.json({
+      members,
+      pinEnabled: !!config.familyPin,
+      openSignup: config.allowOpenSignup,
+    });
   }),
 );
 
@@ -288,7 +363,7 @@ authRouter.post(
     if (!verifyPassword(body.currentPassword, req.user.password_hash)) {
       throw unauthorized("Current password is incorrect", "bad_credentials");
     }
-    const problem = passwordProblem(body.newPassword);
+    const problem = passwordProblem(body.newPassword, config.allowWeakPasswords);
     if (problem) throw badRequest(`Password ${problem}`, "weak_password");
 
     getDb().prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(hashPassword(body.newPassword), req.user.id);

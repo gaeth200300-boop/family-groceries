@@ -12,6 +12,9 @@ process.env.JWT_SECRET = "test-secret-that-is-definitely-long-enough-32";
 process.env.REQUIRE_INVITE = "false";
 // Neutralise a developer's local .env so the test is reproducible.
 process.env.SETUP_TOKEN = "";
+process.env.ALLOW_OPEN_SIGNUP = "false";
+process.env.FAMILY_PIN = "";
+process.env.ALLOW_WEAK_PASSWORDS = "false";
 process.env.AUTH_RATE_LIMIT_MAX = "1000";
 process.env.CORS_ORIGINS = "";
 

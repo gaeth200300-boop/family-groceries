@@ -15,6 +15,9 @@ process.env.DATABASE_URL = ":memory:";
 process.env.JWT_SECRET = "test-secret-that-is-definitely-long-enough-32";
 process.env.REQUIRE_INVITE = "false";
 process.env.SETUP_TOKEN = "";
+process.env.ALLOW_OPEN_SIGNUP = "false";
+process.env.FAMILY_PIN = "";
+process.env.ALLOW_WEAK_PASSWORDS = "false";
 process.env.AUTH_RATE_LIMIT_MAX = "1000";
 
 const { createApp } = await import("../src/index.js");

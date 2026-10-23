@@ -67,6 +67,38 @@ const schema = z.object({
     .default("true")
     .transform((v) => v === "true" || v === "1"),
 
+  /**
+   * Let anyone who can reach the app create a member account without an invite.
+   * Accounts join the oldest household as regular members (never admins).
+   *
+   * This is OFF by default. Turn it on only for a private family deployment
+   * whose link you trust; a public link plus open signup lets strangers join.
+   */
+  ALLOW_OPEN_SIGNUP: z
+    .string()
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
+
+  /**
+   * Optional shared access code accepted for every member at login, in addition
+   * to their own password. It powers the family member picker / quick login.
+   * Leave empty to require each member's real password.
+   */
+  FAMILY_PIN: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().min(4).max(32).optional(),
+  ),
+
+  /**
+   * Allow short family passwords such as 1234. OFF by default because it
+   * weakens every account; enable only for the same private deployment as
+   * ALLOW_OPEN_SIGNUP.
+   */
+  ALLOW_WEAK_PASSWORDS: z
+    .string()
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
+
   // Extra throttle on credential endpoints, per IP.
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(15 * 60 * 1000),
@@ -104,6 +136,9 @@ export const config = {
   trustProxy: env.TRUST_PROXY,
   setupToken: env.SETUP_TOKEN ?? null,
   requireInvite: env.REQUIRE_INVITE,
+  allowOpenSignup: env.ALLOW_OPEN_SIGNUP,
+  familyPin: env.FAMILY_PIN ?? null,
+  allowWeakPasswords: env.ALLOW_WEAK_PASSWORDS,
   authRateLimit: { max: env.AUTH_RATE_LIMIT_MAX, windowMs: env.AUTH_RATE_LIMIT_WINDOW_MS },
   corsOrigins: env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean),
   vapidPublicKey: env.VAPID_PUBLIC_KEY ?? null,

@@ -13,6 +13,9 @@ process.env.NODE_ENV = "test";
 process.env.DATABASE_URL = ":memory:";
 process.env.JWT_SECRET = "test-secret-that-is-definitely-long-enough-32";
 process.env.REQUIRE_INVITE = "false";
+process.env.FAMILY_PIN = "1234";
+process.env.ALLOW_OPEN_SIGNUP = "false";
+process.env.ALLOW_WEAK_PASSWORDS = "false";
 process.env.AUTH_RATE_LIMIT_MAX = "1000";
 // A local .env may define SETUP_TOKEN; pin the value for this test process so
 // the UI setup test is deterministic in both CI and a developer machine.
@@ -101,8 +104,11 @@ test("app boots to the sign-in screen when a server is configured", async () => 
   assert.equal(d.querySelector("#auth").hidden, false, "auth screen must be visible");
   assert.equal(d.querySelector("#app").hidden, true, "app must be hidden");
   assert.equal(d.querySelector("#paneSignin").hidden, false, "sign-in pane active");
-  assert.ok(d.querySelector("#signinForm"), "sign-in form present");
-  assert.ok(!/1234/.test(d.querySelector("#auth").textContent), "demo PIN must not be shown");
+  assert.ok(d.querySelector("#signinForm"), "email fallback form present");
+  assert.ok(d.querySelector("#memberPicker"), "family member picker present");
+  assert.ok(d.querySelector("#pinForm"), "quick-login form present");
+  assert.ok(d.querySelector("#pinInput"), "PIN field present");
+  assert.ok(/1234/.test(d.querySelector("#auth").textContent), "the family access code hint is shown");
   assert.equal(w.__errs.length, 0, w.__errs.join(" | "));
   w.close();
 });
@@ -122,6 +128,22 @@ test("first-run setup creates the household owner and enters the app", async () 
   assert.equal(d.querySelector("#app").hidden, false, "should be inside the app now: " + d.querySelector("#setupError").textContent);
   assert.equal(d.querySelector("#auth").hidden, true);
   assert.equal(w.__errs.length, 0, w.__errs.join(" | "));
+  w.close();
+});
+
+test("a family member signs in by picking their card and entering the 1234 code", async () => {
+  const { w, d } = openApp();
+  await tick(w, 600);
+  const cards = [...d.querySelectorAll("#memberPicker .pick-member")];
+  assert.ok(cards.length >= 1, "the roster cards loaded, got " + cards.length);
+  const owner = cards.find((c) => c.textContent.includes("Owner"));
+  assert.ok(owner, "the owner card is present");
+  click(w, owner);
+  d.querySelector("#pinInput").value = "1234";
+  submit(w, d.querySelector("#pinForm"));
+  await tick(w, 700);
+  assert.equal(d.querySelector("#app").hidden, false,
+    "PIN sign-in failed; error = " + (d.querySelector("#authError")?.textContent || "none"));
   w.close();
 });
 

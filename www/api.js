@@ -155,26 +155,33 @@
     try { if (API_BASE) localStorage.setItem('fg_api_base', API_BASE); } catch (e) {}
   }
 
+  function adoptSession(d) {
+    accessToken = d.accessToken;
+    session = { user: d.user, household: null };
+    persistSession();
+    emit({ type: 'signed-in', user: d.user });
+    return d.user;
+  }
+
   function signIn(email, password) {
     return request('POST', '/api/auth/login', { email: email, password: password }, { _noRetry: true })
-      .then(function (d) {
-        accessToken = d.accessToken;
-        session = { user: d.user, household: null };
-        persistSession();
-        emit({ type: 'signed-in', user: d.user });
-        return d.user;
-      });
+      .then(adoptSession);
+  }
+
+  /** Sign in from the family member picker: a roster id plus the shared PIN. */
+  function signInMember(userId, password) {
+    return request('POST', '/api/auth/login', { userId: userId, password: password }, { _noRetry: true })
+      .then(adoptSession);
   }
 
   function signUp(fields) {
     return request('POST', '/api/auth/register', fields, { _noRetry: true })
-      .then(function (d) {
-        accessToken = d.accessToken;
-        session = { user: d.user, household: null };
-        persistSession();
-        emit({ type: 'signed-in', user: d.user });
-        return d.user;
-      });
+      .then(adoptSession);
+  }
+
+  /** Public names/roles for the pre-login member picker (no emails). */
+  function roster() {
+    return request('GET', '/api/auth/roster', undefined, { _noRetry: true });
   }
 
   function signOut() {
@@ -354,7 +361,8 @@
     getUser: function () { return session && session.user; },
     onChange: onChange,
 
-    signIn: signIn, signUp: signUp, signOut: signOut,
+    signIn: signIn, signInMember: signInMember, signUp: signUp, signOut: signOut,
+    roster: roster,
     deleteAccount: deleteAccount, changePassword: changePassword,
     inviteMember: inviteMember, listInvites: listInvites, revokeInvite: revokeInvite,
     listMembers: listMembers, setMemberRole: setMemberRole, setMemberEnabled: setMemberEnabled,

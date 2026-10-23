@@ -78,10 +78,17 @@ export function makeInviteCode() {
   return `${group()}-${group()}-${group()}`;
 }
 
-/** Password strength gate. Returns null if acceptable, else a reason string. */
-export function passwordProblem(pw) {
-  if (typeof pw !== "string" || pw.length < 10) return "must be at least 10 characters";
+/**
+ * Password strength gate. Returns null if acceptable, else a reason string.
+ *
+ * `allowWeak` is an explicit escape hatch for a private family deployment that
+ * wants a short shared-style password such as "1234". It is never the default.
+ */
+export function passwordProblem(pw, allowWeak = false) {
+  const min = allowWeak ? 4 : 10;
+  if (typeof pw !== "string" || pw.length < min) return `must be at least ${min} characters`;
   if (pw.length > 200) return "must be at most 200 characters";
+  if (allowWeak) return null;
   if (!/[a-z]/.test(pw) && !/[؀-ۿ]/.test(pw))
     return "must contain a lowercase letter or an Arabic letter";
   if (!/[0-9]/.test(pw)) return "must contain a digit";

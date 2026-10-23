@@ -477,8 +477,13 @@ mark{background:var(--primary-soft);color:var(--primary);border-radius:4px;paddi
 .pick-member small{font-size:10.5px;color:var(--faint)}
 .pick-member:hover{border-color:var(--border-strong)}
 .pick-member.sel{border-color:var(--primary);background:var(--primary-soft);box-shadow:0 0 0 3px var(--primary-ring)}
-.pin-form{display:flex;gap:10px}
+.pin-form{display:flex;gap:10px;margin-top:2px}
 .pin-form .field{flex:1;text-align:center;letter-spacing:8px;font-size:18px;font-family:'Readex Pro';font-weight:600;padding:11px}
+.pin-form .btn{flex:none;min-width:88px;justify-content:center}
+#memberPicker{margin:14px 0 10px}
+#memberPicker .pick-member{cursor:pointer}
+#memberPicker .picker-note{grid-column:1/-1;text-align:center;color:var(--faint);font-size:12.5px;padding:14px 6px}
+#emailLoginBox{margin-top:14px}
 .auth-error{color:var(--red);font-size:13px;margin-top:12px;font-weight:600}
 .auth-hint{margin-top:18px;display:flex;gap:8px;align-items:flex-start;justify-content:center;color:var(--faint);font-size:12px;line-height:1.7;text-align:start;background:var(--surface-2);border:1px dashed var(--border-strong);padding:10px 14px;border-radius:12px}
 .auth-hint svg{width:14px;height:14px;flex:none;margin-top:4px}
@@ -538,32 +543,42 @@ mark{background:var(--primary-soft);color:var(--primary);border-radius:4px;paddi
     </div>
 
     <div class="auth-pane" id="paneSignin">
-      <form id="signinForm" autocomplete="on">
-        <label class="f-label" for="siEmail">البريد الإلكتروني</label>
-        <input class="field" id="siEmail" type="email" inputmode="email" autocomplete="username" placeholder="you@example.com" required>
-        <label class="f-label" for="siPass">كلمة المرور</label>
-        <input class="field" id="siPass" type="password" autocomplete="current-password" placeholder="••••••••" required>
-        <button class="btn primary lg full" type="submit" id="signinBtn">دخول</button>
+      <div class="member-picker" id="memberPicker"></div>
+      <form id="pinForm" class="pin-form" autocomplete="on">
+        <input class="field" id="pinInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="••••" maxlength="32" required>
+        <button class="btn primary" type="submit" id="pinBtn">دخول</button>
       </form>
       <p class="auth-error" id="authError" hidden></p>
-      <p class="auth-hint"><i data-lucide="info"></i><span>التطبيق خاص بالعائلة فقط. عندك كود دعوة؟ افتح تبويب «إنشاء حساب» وأنشئ حسابك باسمك.</span></p>
+      <p class="auth-hint"><i data-lucide="info"></i><span id="pinHint">اختر اسمك ثم أدخل رمز الدخول.</span></p>
+      <p class="auth-hint"><i data-lucide="refresh-cw"></i><span>افتح التطبيق في جهازين وجرّب التعديل — يتزامن تلقائيًا دون تحديث الصفحة.</span></p>
+
+      <details class="auth-server" id="emailLoginBox">
+        <summary><i data-lucide="mail"></i><span>الدخول بالبريد الإلكتروني</span></summary>
+        <form id="signinForm" autocomplete="on">
+          <label class="f-label" for="siEmail">البريد الإلكتروني</label>
+          <input class="field" id="siEmail" type="email" inputmode="email" autocomplete="username" placeholder="you@example.com" required>
+          <label class="f-label" for="siPass">كلمة المرور</label>
+          <input class="field" id="siPass" type="password" autocomplete="current-password" placeholder="••••••••" required>
+          <button class="btn primary lg full" type="submit" id="signinBtn">دخول</button>
+        </form>
+      </details>
     </div>
 
     <div class="auth-pane" id="paneJoin" hidden>
-      <p class="auth-sub">أنشئ حسابك باسمك، وأدخل كود العائلة الذي وصلك من المدير.</p>
+      <p class="auth-sub">أنشئ حسابك باسمك وبريدك وكلمة المرور — بدون كود دعوة.</p>
       <form id="joinForm" autocomplete="on">
         <label class="f-label" for="jnName">اسمك</label>
         <input class="field" id="jnName" type="text" autocomplete="name" placeholder="مثال: فهد" required>
         <label class="f-label" for="jnEmail">البريد الإلكتروني</label>
         <input class="field" id="jnEmail" type="email" inputmode="email" autocomplete="username" placeholder="you@example.com" required>
-        <label class="f-label" for="jnPass">كلمة مرور جديدة</label>
-        <input class="field" id="jnPass" type="password" autocomplete="new-password" placeholder="10 أحرف على الأقل مع رقم" required>
-        <label class="f-label" for="jnCode">كود الدعوة</label>
-        <input class="field" id="jnCode" type="text" placeholder="XXXX-XXXX-XXXX" autocapitalize="characters" autocomplete="off" spellcheck="false" required>
+        <label class="f-label" for="jnPass">كلمة المرور</label>
+        <input class="field" id="jnPass" type="password" autocomplete="new-password" placeholder="4 أحرف على الأقل — مثال: 1234" minlength="4" required>
+        <label class="f-label" for="jnCode" hidden>كود الدعوة (اختياري)</label>
+        <input class="field" id="jnCode" type="text" placeholder="XXXX-XXXX-XXXX" autocapitalize="characters" autocomplete="off" spellcheck="false" hidden>
         <button class="btn primary lg full" type="submit" id="joinBtn">إنشاء الحساب</button>
       </form>
       <p class="auth-error" id="joinError" hidden></p>
-      <p class="auth-hint"><i data-lucide="info"></i><span>بعد إنشاء الحساب يبقى تسجيل الدخول محفوظًا على هذا الجهاز، ويظهر اسمك في التطبيق. الكود صالح لشخص واحد.</span></p>
+      <p class="auth-hint"><i data-lucide="info"></i><span>بعد إنشاء الحساب يبقى تسجيل الدخول محفوظًا على هذا الجهاز، ويظهر اسمك في التطبيق.</span></p>
     </div>
 
     <div class="auth-pane" id="paneSetup" hidden>
@@ -575,7 +590,7 @@ mark{background:var(--primary-soft);color:var(--primary);border-radius:4px;paddi
         <label class="f-label" for="suEmail">البريد الإلكتروني</label>
         <input class="field" id="suEmail" type="email" inputmode="email" autocomplete="username" required>
         <label class="f-label" for="suPass">كلمة مرور جديدة</label>
-        <input class="field" id="suPass" type="password" autocomplete="new-password" placeholder="10 أحرف على الأقل مع رقم" required>
+        <input class="field" id="suPass" type="password" autocomplete="new-password" placeholder="4 أحرف على الأقل — مثال: 1234" minlength="4" required>
         <label class="f-label" for="suHouse">اسم العائلة</label>
         <input class="field" id="suHouse" type="text" placeholder="عائلتي" value="عائلتي">
         <label class="f-label" for="suToken">رمز الإعداد (إن فعّله الخادم)</label>
@@ -2065,6 +2080,11 @@ function refresh(){
 
 /* ---------- الدخول والخروج ---------- */
 let authMode = 'signin';
+let authMembers = [];
+let authMemberId = null;
+let authPinEnabled = false;
+let authRosterLoaded = false;
+let authRosterLoading = false;
 
 function showAuthPane(which){
   authMode = which;
@@ -2076,6 +2096,7 @@ function showAuthPane(which){
   const local = which === 'local';
   $('#authTabs').hidden = local;
   renderLocalPicker();
+  if (which === 'signin' && API && API.getBase()) loadLoginRoster();
   icons();
 }
 
@@ -2121,6 +2142,52 @@ function renderLocalPicker(){
     '<small>' + (m.role === 'admin' ? 'مدير' : 'عضو') + '</small></button>').join('');
 }
 
+/* أعضاء الخادم قبل الدخول: الأسماء والأدوار فقط، من نقطة نهاية عامة. */
+async function loadLoginRoster(force){
+  const box = $('#memberPicker');
+  if (!box || !API || !API.getBase()) return;
+  if (authRosterLoading) return;
+  if (authRosterLoaded && !force) return;
+  authRosterLoading = true;
+  box.innerHTML = '<p class="picker-note">جارٍ تحميل أسماء العائلة…</p>';
+  try{
+    const d = await API.roster();
+    authMembers = (d.members || []).map((m, i) => ({
+      id: m.id, name: m.name, role: m.role, hue: HUES[i % HUES.length]
+    }));
+    authPinEnabled = !!d.pinEnabled;
+    authRosterLoaded = true;
+    authMemberId = authMembers.length ? authMembers[0].id : null;
+    if (!authMembers.length){
+      box.innerHTML = '<p class="picker-note">لا يوجد أعضاء بعد — أنشئ حسابك من تبويب «إنشاء حساب».</p>';
+    } else {
+      box.innerHTML = authMembers.map(m =>
+        '<button type="button" class="pick-member' + (m.id === authMemberId ? ' sel' : '') + '" ' +
+        'data-action="pick-auth-member" data-id="' + esc(m.id) + '">' +
+        '<span class="avatar" style="--av:' + m.hue + '">' + esc(m.name[0] || '?') + '</span>' +
+        '<b>' + esc(m.name) + '</b><small>' + (m.role === 'admin' ? 'مدير' : 'عضو') + '</small></button>').join('');
+    }
+    const hint = $('#pinHint');
+    if (hint) hint.textContent = authPinEnabled
+      ? 'للتجربة: رمز الدخول 1234 لأي عضو. اختر اسمك ثم اضغط دخول.'
+      : 'اختر اسمك ثم أدخل كلمة المرور.';
+    icons();
+  }catch(e){
+    authRosterLoaded = false;
+    box.innerHTML = '<p class="picker-note">تعذّر تحميل الأعضاء — استخدم «الدخول بالبريد الإلكتروني» بالأسفل.</p>';
+  }finally{
+    authRosterLoading = false;
+  }
+}
+
+function selectAuthMember(id, el){
+  authMemberId = id;
+  $$('#memberPicker .pick-member').forEach(x => x.classList.toggle('sel', x === el));
+  authError('authError', '');
+  const pin = $('#pinInput');
+  if (pin) pin.focus();
+}
+
 function localSignIn(id){
   const m = state.members.find(x => x.id === id);
   if (m) login(m);
@@ -2145,6 +2212,14 @@ function authError(id, msg){
 function renderAuth(){
   const url = $('#srvUrl'); if (url && API) url.value = API.getBase() || '';
   const configured = !!(API && API.getBase());
+  if (configured){
+    authRosterLoaded = false;
+    authMembers = [];
+    authMemberId = null;
+    const pin = $('#pinInput'); if (pin) pin.value = '';
+    const code = $('#jnCode'); if (code) code.value = '';
+    const box = $('#emailLoginBox'); if (box) box.open = false;
+  }
   showAuthPane(configured ? 'signin' : 'local');
   // في الوضع المحلي نستخدم عضًا واحدًا بلا خادم
   authError('authError', ''); authError('joinError', ''); authError('setupError', '');
@@ -2197,26 +2272,60 @@ async function doSignIn(e){
   }finally{ btn.disabled = false; btn.textContent = 'دخول'; }
 }
 
-/* الانضمام بكود دعوة */
+/* الدخول السريع: اختر عضوًا ثم أدخل رمز العائلة */
+async function doPinSignIn(e){
+  e.preventDefault();
+  const pass = $('#pinInput').value;
+  if (!authMemberId){
+    authError('authError', 'اختر اسمك من القائمة أولًا');
+    return;
+  }
+  if (!pass){
+    authError('authError', 'أدخل رمز الدخول');
+    return;
+  }
+  const btn = $('#pinBtn'); btn.disabled = true; btn.textContent = 'جارٍ الدخول…';
+  authError('authError', '');
+  try{
+    const user = await API.signInMember(authMemberId, pass);
+    currentUser = user;
+    await syncFromServer();
+    $('#pinInput').value = '';
+    login(user);
+  }catch(err){
+    const m = /disabled/i.test(err.message) ? 'هذا الحساب معطّل — راجع مدير العائلة'
+      : /incorrect/i.test(err.message) ? 'الرمز غير صحيح — تأكد منه وحاول مرة أخرى'
+      : ('تعذّر الدخول: ' + err.message);
+    authError('authError', m);
+  }finally{ btn.disabled = false; btn.textContent = 'دخول'; }
+}
+
+/* إنشاء حساب جديد — بدون كود دعوة */
 async function doJoin(e){
   e.preventDefault();
   const name = $('#jnName').value.trim(), email = $('#jnEmail').value.trim();
-  const pass = $('#jnPass').value, code = $('#jnCode').value.trim().toUpperCase();
+  const pass = $('#jnPass').value;
+  const codeEl = $('#jnCode');
+  const code = codeEl ? codeEl.value.trim().toUpperCase() : '';
   const btn = $('#joinBtn'); btn.disabled = true; btn.textContent = 'جارٍ إنشاء الحساب…';
   authError('joinError', '');
   try{
-    const user = await API.signUp({name, email, password: pass, inviteCode: code});
+    const fields = {name, email, password: pass};
+    if (code) fields.inviteCode = code;
+    const user = await API.signUp(fields);
     currentUser = user;
     await syncFromServer();
+    if (codeEl) codeEl.value = '';
     login(user, true);
     toast('تم حفظ حسابك — أهلًا ' + user.name);
   }catch(err){
-    const m = /invite_used/.test(err.code) ? 'استُخدم هذا الكود من قبل — اطلب كودًا جديدًا'
-      : /invite_(invalid|revoked|expired)/.test(err.code) ? 'كود الدعوة غير صالح أو منتهي'
+    const m = /invite_used/.test(err.code) ? 'استُخدم هذا الكود من قبل — أنشئ حسابك بدون كود'
+      : /invite_(invalid|revoked|expired)/.test(err.code) ? 'كود الدعوة غير صالح أو منتهي — أنشئ حسابك بدون كود'
       : /email_mismatch/.test(err.code) ? 'هذا الكود صدر لبريد إلكتروني آخر'
       : /email_taken/.test(err.code) ? 'هذا البريد مسجّل من قبل — سجّل الدخول بدلًا من إنشاء حساب'
-      : /weak_password/.test(err.code) ? 'كلمة المرور: 10 أحرف على الأقل وتحتوي رقمًا'
-      : /invite_required/.test(err.code) ? 'تحتاج كود دعوة من مدير العائلة'
+      : /weak_password/.test(err.code) ? 'كلمة المرور قصيرة — استخدم 4 أحرف على الأقل (مثل 1234)'
+      : /invite_required/.test(err.code) ? 'التسجيل مغلق حاليًا — تواصل مع مدير العائلة'
+      : /no_household/.test(err.code) ? 'الخادم ما زال بلا عائلة — أنشئ أول حساب من شاشة الإعداد'
       : ('تعذّر إنشاء الحساب: ' + err.message);
     authError('joinError', m);
   }finally{ btn.disabled = false; btn.textContent = 'إنشاء الحساب'; }
@@ -2335,6 +2444,7 @@ document.addEventListener('click', e => {
           refresh(); toast('تم سحب الوصول', 'warn'); });
       break;
     }
+    case 'pick-auth-member': selectAuthMember(t.dataset.id, t); break;
     case 'local-enter': localSignIn(t.dataset.id); break;
     case 'local-new': localNewUser(); break;
     case 'open-account': openAccountModal(); break;
@@ -2391,6 +2501,7 @@ document.addEventListener('submit', e => {
   e.preventDefault();
   const f = e.target;
   if (f.id === 'signinForm') doSignIn(e);
+  else if (f.id === 'pinForm') doPinSignIn(e);
   else if (f.id === 'joinForm') doJoin(e);
   else if (f.id === 'setupForm') doSetup(e);
   else if (f.id === 'serverForm') saveServerUrl(e);

@@ -1,6 +1,6 @@
 /**
- * Family-privacy UI: the owner must be able to see outstanding invites and
- * revoke them, and the app must never display or accept a PIN.
+ * Family UI: the owner can manage invites, while the login screen offers the
+ * member picker and the shared family access code.
  * Runs the real index.html against the real server, with SETUP_TOKEN enabled.
  */
 import "reflect-metadata";
@@ -16,6 +16,9 @@ const SETUP_TOKEN = "ui-setup-token-0123456789abcdef";
 process.env.NODE_ENV = "production";
 process.env.JWT_SECRET = "invite-ui-test-secret-long-enough-32";
 process.env.REQUIRE_INVITE = "true";
+process.env.FAMILY_PIN = "1234";
+process.env.ALLOW_OPEN_SIGNUP = "false";
+process.env.ALLOW_WEAK_PASSWORDS = "false";
 process.env.SETUP_TOKEN = SETUP_TOKEN;
 process.env.TRUST_PROXY = "false";
 process.env.AUTH_RATE_LIMIT_MAX = "10000";
@@ -186,13 +189,23 @@ test("the household is claimed with a setup token, not an open signup", async ()
   assert.equal(r.body.error, "invite_required");
 });
 
-test("the app never displays a PIN anywhere", async () => {
-  const { w, d } = await signInOwner();
-  const visible = d.querySelector("#auth").textContent + d.querySelector("#app").textContent;
-  assert.ok(!/1234/.test(visible), "a PIN must never be shown to the user");
-  // And there is no PIN field in the DOM at all.
-  assert.equal(d.querySelectorAll("#pinInput").length, 0);
-  assert.equal(d.querySelectorAll("#memberPicker").length, 0);
+test("the app offers the family member picker and the 1234 access code", async () => {
+  const { w, d } = openApp();
+  await tick(w, 900);
+
+  const cards = [...d.querySelectorAll("#memberPicker .pick-member")];
+  assert.ok(cards.length >= 1, "the public roster rendered cards, got " + cards.length);
+  assert.ok(/1234/.test(d.querySelector("#auth").textContent), "the family access code hint is shown");
+
+  const owner = cards.find((c) => c.textContent.includes("Owner"));
+  assert.ok(owner, "the owner card is present");
+  click(w, owner);
+  d.querySelector("#pinInput").value = "1234";
+  submit(w, d.querySelector("#pinForm"));
+  await tick(w, 1000);
+
+  assert.equal(d.querySelector("#app").hidden, false,
+    "PIN sign-in failed; error = " + (d.querySelector("#authError")?.textContent || "none"));
   w.close();
 });
 
